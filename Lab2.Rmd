@@ -1,0 +1,168 @@
+---
+title: "Lab2"
+author: "Marcus Chen"
+date: "June 20, 2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load libraries
+```{r, message=FALSE}
+library(car)
+library(Hmisc)
+library(MASS)
+library(nnet )
+```
+
+
+## Load data
+
+```{r}
+cereal = read.csv("./cereal_dillons.csv")
+str(cereal)
+describe(cereal)
+head(cereal)
+tail(cereal)
+```
+
+## (a) Reformatting
+```{r}
+cereal2 <- cereal
+
+# Convert to portion
+for(col in c('sugar_g','fat_g','sodium_mg')) {
+  cereal2[col] = cereal[col] / cereal['size_g']
+}
+
+# Rescale
+## Functions
+scale.fit <- function(df) {
+  .fit <- function(x) {c(min(x), max(x)-min(x))}
+  scale.scaler <<- apply(df, 2, .fit)
+}
+
+scale.fit_transform <- function(df){
+  scale.scaler <<- scale.fit(df)
+  dfx = df
+  for(i in names(dfx)) {
+    dfx[,i] <- (dfx[,i] - scale.scaler[1,i]) / scale.scaler[2,i]
+  }
+  dfx
+}
+
+scale.transform <- function(df){
+  dfx = df
+  for(i in names(dfx)) {
+    dfx[,i] <- (dfx[,i] - scale.scaler[1,i]) / scale.scaler[2,i]
+  }
+  dfx
+}
+
+## Calculation
+cereal2[c('sugar','fat','sodium')] <- scale.fit_transform(cereal2[c('sugar_g','fat_g','sodium_mg')])
+
+
+head(cereal)
+head(cereal2)
+
+```
+
+## (b) Box plots
+```{r}
+boxplot(formula = sugar ~ Shelf, data = cereal2, main = "Sugar by Shelf",
+        ylab = "Sugar", xlab = "Shelf", pars = list ( outpch =NA))
+stripchart(x = sugar ~ Shelf , data = cereal2, lwd = 2, col = "red", 
+           method = "jitter", vertical = TRUE, pch = 1, add = TRUE)
+
+boxplot(formula = fat ~ Shelf, data = cereal2, main = "Fat by Shelf",
+        ylab = "fat", xlab = "Shelf", pars = list ( outpch =NA))
+stripchart(x = fat ~ Shelf , data = cereal2, lwd = 2, col = "red", 
+           method = "jitter", vertical = TRUE, pch = 1, add = TRUE )
+
+boxplot(formula = sodium ~ Shelf, data = cereal2, main = "Sodium by Shelf",
+        ylab = "sodium", xlab = "Shelf", pars = list ( outpch =NA))
+stripchart(x = sodium ~ Shelf , data = cereal2, lwd = 2, col = "red", 
+           method = "jitter", vertical = TRUE, pch = 1, add = TRUE )
+
+my_colors=colors()[as.numeric(cereal2$Shelf)*11]
+parcoord(cereal2[, c(8,9,10,2)], col=my_colors)
+
+
+```
+We observed clear content differences among the shelves. 
+
+Shelf 1 has high frequency in zero fat cereals; the sugar distribution exhibits two type of products (low and high) with nothing in-between. It also has the highest average sodium concentration.
+
+Sehlf 2 has the highest average sugar with the look of normal distribution, even the products with the lowest sugar (~0.6 g) is above the average level of other shelves'. The fat and sodium concentration is identical to Shelf 3 and Shelf 4.
+
+We did not observe obvious difference is between Shelf 3 and Shelf 4. They both have the same average sugar and sodium level with normal distribution despite Shelf 3 has slightly higher variance.
+
+
+## (c)
+If we have the information for a natural order (i.e. which shelf's cereals are more popular among consumers), it will be desirable to consider the ordinality. However, this is not applicable here. The shelf number itself contains no information of a natural order.
+
+## (d)
+```{r}
+mod.fit <- multinom(formula = Shelf ~ sugar + fat + sodium, 
+                    data=cereal2)
+summary(mod.fit)
+Anova(mod.fit)
+  
+```
+
+
+## (e)
+```{r}
+mod.fit2 <- multinom(formula = 
+    Shelf ~ sugar + fat + sodium + sugar:fat + sugar:sodium + fat:sodium, 
+                     data=cereal2)
+
+summary(mod.fit2)
+Anova(mod.fit2)
+
+
+
+# # Model 3: Best model
+# mod.fit3 <- multinom(formula = Shelf ~ sugar + sodium, 
+#                      data=cereal2)
+# 
+# summary(mod.fit3)
+# Anova(mod.fit3)
+```
+
+## (f)
+```{r}
+kaj <- data.frame(size_g = 28, sugar_g = 12, fat_g = 0.5, sodium_mg = 130)
+kaj2 <- kaj
+
+# Convert to portion
+for(col in c('sugar_g','fat_g','sodium_mg')) {
+  kaj2[col] = kaj2[col] / kaj2['size_g']
+}
+
+# rescale
+kaj2[c('sugar','fat','sodium')] <- scale.transform(kaj2[c('sugar_g','fat_g','sodium_mg')])
+
+kaj2
+
+pi.hat <- predict(object = mod.fit,
+                  newdata = kaj2[c('sugar','fat','sodium')],
+                  type = 'probs')
+pi.hat
+```
+
+# (g)
+```{r}
+
+```
+
+
+
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
